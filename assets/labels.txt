@@ -1,0 +1,3 @@
+0 Awake
+1 Drowsy
+2 Sleep
