@@ -1,7 +1,12 @@
+import 'dart:async';
+import 'dart:math';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_tflite/flutter_tflite.dart';
 import 'package:prototype01/main.dart';
+
+import 'home.dart';
 
 
 class FeedCam extends StatefulWidget {
@@ -15,16 +20,41 @@ class _FeedCamState extends State<FeedCam> {
   CameraImage? cameraImage;
   CameraController? cameraController;
   String output = '';
+  var awake_var = 0;
+  var drowsi_var = 0;
+  var sleep_var =0;
+
 
   @override
   void initState(){
     super.initState();
     loadCamera();
-    loadmodel();
+    //loadmodel();
+    tempRand();
+
+
+  }
+
+  @override
+  void dispose() {
+    // you can add to close tflite if error is caused by tflite
+    Tflite.close();
+    cameraController!.dispose(); // this is to dispose camera controller if you are using live detection
+    super.dispose();
+  }
+
+  tempRand(){
+    Timer.periodic(Duration(seconds: 3), (_) {
+      setState(() {
+        awake_var = Random().nextInt(50) + 50; // Value is >= 0 and < 100.
+        drowsi_var = Random().nextInt(10) + 50; // Value is >= 0 and < 100.
+        sleep_var = Random().nextInt(5) + 20;
+      });
+    });
   }
 
   loadCamera(){
-    cameraController = CameraController(cameras![0], ResolutionPreset.medium);
+    cameraController = CameraController(cameras![1], ResolutionPreset.medium);
     cameraController!.initialize().then((value){
       if(!mounted){
         return;
@@ -38,8 +68,9 @@ class _FeedCamState extends State<FeedCam> {
       }
     });
   }
+
   runModel() async{
-    if(cameraImage!=null){
+    if(cameraImage! != null){
       var predictions = await Tflite.runModelOnFrame(bytesList: cameraImage!.planes.map((plane){
         return plane.bytes;
       }).toList(),
@@ -61,7 +92,13 @@ class _FeedCamState extends State<FeedCam> {
   }
   
   loadmodel() async{
-    await Tflite.loadModel(model: "assets/model.tflite", labels: "assets/label.txt");
+    await Tflite.loadModel(
+        model: "assets/model.tflite",
+        labels: "assets/label.txt",
+        numThreads: 1, // defaults to 1
+        isAsset: true, // defaults to true, set to false to load resources outside assets
+        useGpuDelegate: false // defaults to false, set to true to use GPU delegate
+    );
   }
 
   @override
@@ -72,7 +109,7 @@ class _FeedCamState extends State<FeedCam> {
           centerTitle: true,
           automaticallyImplyLeading: false,
           backgroundColor: Colors.pink,
-          title: Text('STATUS : ACTIVE / NOT ACTIVE', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
+          title: Text('DriveAlerto®', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600)),
           elevation: 0,
         ),
     body: Container(
@@ -89,7 +126,7 @@ class _FeedCamState extends State<FeedCam> {
                     width: 350,
                     height: 450,
                     child: Center(
-                      child: cameraController!.value.isInitialized?
+                      child: !cameraController!.value.isInitialized?
                       Container():
                       AspectRatio(aspectRatio: cameraController!.value.aspectRatio,
                       child: CameraPreview(cameraController!),)
@@ -111,19 +148,19 @@ class _FeedCamState extends State<FeedCam> {
                         Row(
                           children: [
                             Text('Awake :'),
-                            Text('100%')
+                            Text('${awake_var} %')
                           ]
                           ),
                         Row(
                             children: [
                               Text('Drowsi :'),
-                              Text('0%')
+                              Text('${drowsi_var} %')
                             ]
                         ),
                         Row(
                             children: [
                               Text('Sleep :'),
-                              Text('0%')
+                              Text('${sleep_var} %')
                             ]
                         ),
                       ]
@@ -136,10 +173,10 @@ class _FeedCamState extends State<FeedCam> {
                   margin: EdgeInsets.only(bottom: 16),
                   child: ElevatedButton(
                     onPressed: () {
-                      //Navigator.of(context).push(MaterialPageRoute(builder: (context) => FeedCam()));
+                      Navigator.of(context).push(MaterialPageRoute(builder: (context) => Home()));
                     },
                     child: Text(
-                      'Start / Stop',
+                      'Stop',
                       style: TextStyle(color: Colors.black, fontWeight: FontWeight.w600, fontSize: 18, fontFamily: 'poppins'),
                     ),
                     style: ElevatedButton.styleFrom(
